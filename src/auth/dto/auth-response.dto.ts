@@ -16,6 +16,9 @@ export class AuthResponseDto {
       fullName: 'Nguyễn Văn A',
       role: 'user',
       isEmailVerified: false,
+      avatar: '',
+      isActive: true,
+      inventory: ['652f1f77bcf86cd799439011']
     },
     type: Object,
   })
@@ -25,5 +28,8 @@ export class AuthResponseDto {
     fullName: string;
     role: string;
     isEmailVerified: boolean;
+    avatar?: string;
+    isActive?: boolean;
+    inventory?: string[];
   };
 }

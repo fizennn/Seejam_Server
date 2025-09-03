@@ -14,6 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { buildResponse } from '../common/types/base-response';
 import {
   ApiTags,
   ApiOperation,
@@ -49,8 +50,9 @@ export class AuthController {
   @ApiConflictResponse({
     description: 'Email đã tồn tại trong hệ thống',
   })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto) {
+    const result = await this.authService.register(registerDto);
+    return buildResponse({ data: result, message: 'Đăng ký thành công' });
   }
 
   @Post('login')
@@ -70,8 +72,9 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Email hoặc mật khẩu không đúng',
   })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto) {
+    const result = await this.authService.login(loginDto);
+    return buildResponse({ data: result, message: 'Đăng nhập thành công' });
   }
 
   @UseGuards(LocalAuthGuard)
@@ -90,8 +93,9 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Xác thực thất bại',
   })
-  async loginLocal(@Request() req): Promise<AuthResponseDto> {
-    return this.authService.loginLocal(req.user);
+  async loginLocal(@Request() req) {
+    const result = await this.authService.loginLocal(req.user);
+    return buildResponse({ data: result, message: 'Đăng nhập thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -110,19 +114,19 @@ export class AuthController {
     description: 'Token không hợp lệ hoặc hết hạn',
   })
   async getProfile(@Request() req) {
-    // Lấy thông tin user đầy đủ từ database
     const user = await this.authService.getUserProfile(req.user.id);
-    return {
-      user: {
+    return buildResponse({
+      data: {
         id: user._id,
         email: user.email,
         fullName: user.fullName,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         avatar: user.avatar,
-        phoneNumber: user.phoneNumber,
         isActive: user.isActive,
+        inventory: user.inventory
       },
-    };
+      message: 'Lấy profile thành công',
+    });
   }
 }

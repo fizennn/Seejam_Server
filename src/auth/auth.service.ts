@@ -55,8 +55,8 @@ export class AuthService {
         role: fullUser.role,
         isEmailVerified: fullUser.isEmailVerified,
         avatar: fullUser.avatar,
-        phoneNumber: fullUser.phoneNumber,
         isActive: fullUser.isActive,
+        inventory: (fullUser as any).inventory,
       },
     };
   }
@@ -74,8 +74,8 @@ export class AuthService {
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         avatar: user.avatar,
-        phoneNumber: user.phoneNumber,
         isActive: user.isActive,
+        inventory: (user as any).inventory,
       },
     };
   }
@@ -113,8 +113,8 @@ export class AuthService {
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         avatar: user.avatar,
-        phoneNumber: user.phoneNumber,
         isActive: user.isActive,
+        inventory: (user as any).inventory,
       },
     };
   }

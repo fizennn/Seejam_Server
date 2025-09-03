@@ -29,6 +29,7 @@ async function bootstrap() {
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .addTag('auth', 'Xác thực và đăng nhập - Quản lý đăng ký, đăng nhập và xác thực người dùng')
     .addTag('users', 'Quản lý người dùng - Các chức năng của người dùng')
+    .addTag('equipment', 'Quản lý trang bị - CRUD trang bị vũ khí, giáp, phụ kiện')
     .addBearerAuth(
       {
         type: 'http',
