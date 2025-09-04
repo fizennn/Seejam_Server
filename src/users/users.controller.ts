@@ -99,6 +99,7 @@ export class UsersController {
         isEmailVerified: user.isEmailVerified,
         avatar: user.avatar,
         isActive: user.isActive,
+        level: user.level,
         hp: effective.hp,
         atk: effective.atk,
         def: effective.def,

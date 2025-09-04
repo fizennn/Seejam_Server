@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Equipment, EquipmentSchema } from './schemas/equipment.schema';
 import { EquipmentService } from './equipment.service';
-import { EquipmentController } from './equipment.controller';
+import { EquipmentController, EquipmentSyncController } from './equipment.controller';
 
 @Module({
   imports: [
@@ -10,7 +10,7 @@ import { EquipmentController } from './equipment.controller';
       { name: Equipment.name, schema: EquipmentSchema },
     ]),
   ],
-  controllers: [EquipmentController],
+  controllers: [EquipmentController, EquipmentSyncController],
   providers: [EquipmentService],
   exports: [EquipmentService],
 })

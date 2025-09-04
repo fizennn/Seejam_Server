@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { EquipmentModule } from './equipment/equipment.module';
+import { CardModule } from './card/card.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { EquipmentModule } from './equipment/equipment.module';
     AuthModule,
     UsersModule,
     EquipmentModule,
+    CardModule,
   ],
   controllers: [AppController],
   providers: [],

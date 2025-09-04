@@ -252,6 +252,13 @@ export class UsersService {
           throw new BadRequestException(`Item ở vị trí ${index} có type '${equipment.type}' không thể trang bị vào slot '${type}'`);
         }
 
+        // Kiểm tra level yêu cầu
+        const userLevel = (user as any).level ?? 1;
+        const requiredLevel = equipment.levelReq ?? 1;
+        if (userLevel < requiredLevel) {
+          throw new BadRequestException(`Yêu cầu level ${requiredLevel} để trang bị '${equipment.name}'`);
+        }
+
         // Lưu trực tiếp _id của equipment vào slot
         updateData[type] = equipmentId as any;
         indicesToRemove.push(index);
@@ -332,6 +339,13 @@ export class UsersService {
 
     if (equipment.type !== type) {
       throw new BadRequestException(`Item ở vị trí ${index} có type '${equipment.type}' không thể trang bị vào slot '${type}'`);
+    }
+
+    // Kiểm tra level yêu cầu
+    const userLevel = (user as any).level ?? 1;
+    const requiredLevel = equipment.levelReq ?? 1;
+    if (userLevel < requiredLevel) {
+      throw new BadRequestException(`Yêu cầu level ${requiredLevel} để trang bị '${equipment.name}'`);
     }
 
     // Nếu đang có item được trang bị ở slot này, thêm nó trở lại inventory trước khi thay thế

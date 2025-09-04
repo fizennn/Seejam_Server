@@ -38,6 +38,9 @@ export class User {
   @Prop({ type: Number, default: 50 })
   def: number;
 
+  @Prop({ type: Number, default: 1 })
+  level: number;
+
   @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
   weapon: Types.ObjectId | null;
 
