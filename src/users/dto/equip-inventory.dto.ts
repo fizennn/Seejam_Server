@@ -68,3 +68,14 @@ export class EquipInventoryDto {
   @Max(999)
   ring?: number;
 }
+
+export class EquipOneDto {
+  @ApiProperty({
+    description: 'Vị trí của item trong inventory (0-based index)',
+    example: 1,
+  })
+  @IsNumber()
+  @Min(0)
+  @Max(999)
+  index!: number;
+}

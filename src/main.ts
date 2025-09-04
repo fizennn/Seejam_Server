@@ -64,7 +64,7 @@ async function bootstrap() {
   console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
 
   // Logic tự ping chính mình mỗi 15 phút
-  const pingInterval = 15 * 60 * 1000; // 15 phút = 15 * 60 * 1000 milliseconds
+  const pingInterval = 14 * 60 * 1000; // 15 phút = 15 * 60 * 1000 milliseconds
 
   console.log(`🔄 Bắt đầu tự ping server mỗi 15 phút...`);
 

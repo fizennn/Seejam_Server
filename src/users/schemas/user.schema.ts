@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { Equipment } from '../../equipment/schemas/equipment.schema';
 
 export type UserDocument = User & Document;
 
@@ -37,23 +38,23 @@ export class User {
   @Prop({ type: Number, default: 50 })
   def: number;
 
-  @Prop({ type: Number, default: null })
-  weapon: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  weapon: Types.ObjectId | null;
 
-  @Prop({ type: Number, default: null })
-  armor: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  armor: Types.ObjectId | null;
 
-  @Prop({ type: Number, default: null })
-  helmet: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  helmet: Types.ObjectId | null;
 
-  @Prop({ type: Number, default: null })
-  boots: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  boots: Types.ObjectId | null;
 
-  @Prop({ type: Number, default: null })
-  necklace: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  necklace: Types.ObjectId | null;
 
-  @Prop({ type: Number, default: null })
-  ring: number | null;
+  @Prop({ type: Types.ObjectId, ref: Equipment.name, default: null })
+  ring: Types.ObjectId | null;
 
   @Prop({ type: [Types.ObjectId], default: [] })
   inventory: Types.ObjectId[];

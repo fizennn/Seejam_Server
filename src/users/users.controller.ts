@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -27,8 +28,7 @@ import {
   ApiCreatedResponse,
   ApiExcludeEndpoint,
 } from '@nestjs/swagger';
-import { AddInventoryDto } from './dto/add-inventory.dto';
-import { EquipInventoryDto } from './dto/equip-inventory.dto';
+import { EquipInventoryDto, EquipOneDto } from './dto/equip-inventory.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -89,7 +89,7 @@ export class UsersController {
     description: 'Token không hợp lệ hoặc hết hạn',
   })
   async getProfile(@Request() req) {
-    const user = await this.usersService.findOne(req.user.id);
+    const { user, effective } = await this.usersService.findOneWithCalculatedStats(req.user.id);
     return buildResponse({
       data: {
         id: user._id,
@@ -99,9 +99,9 @@ export class UsersController {
         isEmailVerified: user.isEmailVerified,
         avatar: user.avatar,
         isActive: user.isActive,
-        hp: user.hp,
-        atk: user.atk,
-        def: user.def,
+        hp: effective.hp,
+        atk: effective.atk,
+        def: effective.def,
         weapon: user.weapon,
         armor: user.armor,
         helmet: user.helmet,
@@ -116,6 +116,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Post('inventory/equip')
+  @ApiExcludeEndpoint()
   @ApiOperation({ 
     summary: 'Trang bị equipment từ inventory',
     description: 'Trang bị các item từ inventory vào các slot tương ứng (weapon, armor, helmet, boots, necklace, ring)'
@@ -147,6 +148,127 @@ export class UsersController {
       }, 
       message: 'Trang bị equipment thành công' 
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/weapon/:index')
+  @ApiOperation({ summary: 'Trang bị weapon từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipWeapon(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'weapon', dto);
+    return buildResponse({ data: updated, message: 'Trang bị weapon thành công' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/armor/:index')
+  @ApiOperation({ summary: 'Trang bị armor từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipArmor(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'armor', dto);
+    return buildResponse({ data: updated, message: 'Trang bị armor thành công' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/helmet/:index')
+  @ApiOperation({ summary: 'Trang bị helmet từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipHelmet(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'helmet', dto);
+    return buildResponse({ data: updated, message: 'Trang bị helmet thành công' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/boots/:index')
+  @ApiOperation({ summary: 'Trang bị boots từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipBoots(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'boots', dto);
+    return buildResponse({ data: updated, message: 'Trang bị boots thành công' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/necklace/:index')
+  @ApiOperation({ summary: 'Trang bị necklace từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipNecklace(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'necklace', dto);
+    return buildResponse({ data: updated, message: 'Trang bị necklace thành công' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/equip/ring/:index')
+  @ApiOperation({ summary: 'Trang bị ring từ inventory' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'index', description: 'Vị trí item trong inventory (0-based)' })
+  async equipRing(@Request() req, @Param('index', ParseIntPipe) index: number) {
+    const dto: EquipOneDto = { index };
+    const updated = await this.usersService.equipOneFromInventory(req.user.id, 'ring', dto);
+    return buildResponse({ data: updated, message: 'Trang bị ring thành công' });
+  }
+
+  // 6 endpoint cởi trang bị -> đưa vào inventory
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/weapon')
+  @ApiOperation({ summary: 'Cởi weapon và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipWeapon(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'weapon');
+    return buildResponse({ data: updated, message: 'Đã cởi weapon vào inventory' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/armor')
+  @ApiOperation({ summary: 'Cởi armor và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipArmor(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'armor');
+    return buildResponse({ data: updated, message: 'Đã cởi armor vào inventory' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/helmet')
+  @ApiOperation({ summary: 'Cởi helmet và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipHelmet(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'helmet');
+    return buildResponse({ data: updated, message: 'Đã cởi helmet vào inventory' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/boots')
+  @ApiOperation({ summary: 'Cởi boots và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipBoots(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'boots');
+    return buildResponse({ data: updated, message: 'Đã cởi boots vào inventory' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/necklace')
+  @ApiOperation({ summary: 'Cởi necklace và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipNecklace(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'necklace');
+    return buildResponse({ data: updated, message: 'Đã cởi necklace vào inventory' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('inventory/unequip/ring')
+  @ApiOperation({ summary: 'Cởi ring và đưa vào inventory' })
+  @ApiBearerAuth('JWT-auth')
+  async unequipRing(@Request() req) {
+    const updated = await this.usersService.unequipOne(req.user.id, 'ring');
+    return buildResponse({ data: updated, message: 'Đã cởi ring vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
