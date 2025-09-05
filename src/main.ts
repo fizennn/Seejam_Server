@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import axios from 'axios';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -64,33 +65,14 @@ async function bootstrap() {
   console.log(`🚀 Server đang chạy trên port ${port}`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
 
-  // Logic tự ping chính mình mỗi 15 phút
-  const pingInterval = 14 * 60 * 1000; // 15 phút = 15 * 60 * 1000 milliseconds
+  const baseUrl = process.env.BASE_URL;
+  setInterval(
+    () => {
+      axios.get(baseUrl);
+    },
+    15 * 60 * 1000
+  );
 
   console.log(`🔄 Bắt đầu tự ping server mỗi 15 phút...`);
-
-  // Hàm ping server
-  const pingServer = async () => {
-    try {
-      const response = await fetch(`${serverUrl}`);
-      if (response.ok) {
-        console.log(`✅ Server ping thành công - ${new Date().toLocaleString('vi-VN')}`);
-      } else {
-        console.log(
-          `⚠️ Server ping với status: ${response.status} - ${new Date().toLocaleString('vi-VN')}`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `❌ Lỗi khi ping server: ${error.message} - ${new Date().toLocaleString('vi-VN')}`
-      );
-    }
-  };
-
-  // Ping ngay lập tức lần đầu
-  await pingServer();
-
-  // Thiết lập timer ping định kỳ mỗi 15 phút
-  setInterval(pingServer, pingInterval);
 }
 bootstrap();
