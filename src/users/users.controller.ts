@@ -30,7 +30,8 @@ import {
   ApiConflictResponse,
 } from '@nestjs/swagger';
 import { EquipInventoryDto, EquipOneDto } from './dto/equip-inventory.dto';
-import { SaveDeckDto } from './dto/desk.dto';
+import { CreateDeckDto } from './dto/create-deck.dto';
+import { RenameDeckDto } from './dto/rename-deck.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -344,7 +345,7 @@ export class UsersController {
   async getCollection(@Request() req) {
     const collection = await this.usersService.getCollection(req.user.id);
     return buildResponse({ 
-      data: collection, 
+      data: { collection }, 
       message: 'Lấy danh sách collection thành công' 
     });
   }
@@ -384,202 +385,71 @@ export class UsersController {
     });
   }
 
-  // Desk management endpoints
+  // Desk (array) endpoints
   @UseGuards(JwtAuthGuard)
   @Get('desk')
-  @ApiOperation({ 
-    summary: 'Lấy thông tin desk của user hiện tại',
-    description: 'Lấy thông tin về các deck và saved decks của người dùng'
-  })
+  @ApiOperation({ summary: 'Lấy danh sách deck' })
   @ApiBearerAuth('JWT-auth')
-  @ApiResponse({
-    status: 200,
-    description: 'Lấy thông tin desk thành công',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
   async getDesk(@Request() req) {
-    const desk = await this.usersService.getDesk(req.user.id);
-    return buildResponse({ 
-      data: desk, 
-      message: 'Lấy thông tin desk thành công' 
-    });
+    const userId = req.user?.id ?? req.user?.sub ?? req.user?._id;
+    const desk = await this.usersService.getDesk(userId);
+    return buildResponse({ data: desk, message: 'Lấy desk thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('desk/:deckType/:cardId')
-  @ApiOperation({ 
-    summary: 'Thêm card vào deck',
-    description: 'Thêm một card vào deck cụ thể (activeCards, deck1, deck2, deck3)'
-  })
+  @Post('desk')
+  @ApiOperation({ summary: 'Tạo deck mới' })
   @ApiBearerAuth('JWT-auth')
-  @ApiParam({ 
-    name: 'deckType', 
-    description: 'Loại deck (activeCards, deck1, deck2, deck3)',
-    enum: ['activeCards', 'deck1', 'deck2', 'deck3']
-  })
-  @ApiParam({ 
-    name: 'cardId', 
-    description: 'ObjectId của card cần thêm vào deck',
-    example: '507f1f77bcf86cd799439011'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Thêm card vào deck thành công',
-  })
-  @ApiBadRequestResponse({
-    description: 'Card ID không hợp lệ hoặc card không có trong collection',
-  })
-  @ApiConflictResponse({
-    description: 'Card đã có trong deck này',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
-  async addCardToDeck(@Request() req, @Param('deckType') deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', @Param('cardId') cardId: string) {
-    const updated = await this.usersService.addCardToDeck(req.user.id, deckType, cardId);
-    return buildResponse({ 
-      data: { 
-        desk: updated.desk 
-      }, 
-      message: 'Đã thêm card vào deck thành công' 
-    });
+  @ApiBody({ type: CreateDeckDto })
+  async createDeck(@Request() req, @Body() body: CreateDeckDto) {
+    const updated = await this.usersService.createDeck(req.user.id, body.name, body.cardIds ?? [], body.selected ?? false);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Tạo deck thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete('desk/:deckType/:cardId')
-  @ApiOperation({ 
-    summary: 'Xóa card khỏi deck',
-    description: 'Xóa một card khỏi deck cụ thể'
-  })
+  @Delete('desk/:deckName')
+  @ApiOperation({ summary: 'Xóa deck theo tên' })
   @ApiBearerAuth('JWT-auth')
-  @ApiParam({ 
-    name: 'deckType', 
-    description: 'Loại deck (activeCards, deck1, deck2, deck3)',
-    enum: ['activeCards', 'deck1', 'deck2', 'deck3']
-  })
-  @ApiParam({ 
-    name: 'cardId', 
-    description: 'ObjectId của card cần xóa khỏi deck',
-    example: '507f1f77bcf86cd799439011'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Xóa card khỏi deck thành công',
-  })
-  @ApiBadRequestResponse({
-    description: 'Card ID không hợp lệ',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
-  async removeCardFromDeck(@Request() req, @Param('deckType') deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', @Param('cardId') cardId: string) {
-    const updated = await this.usersService.removeCardFromDeck(req.user.id, deckType, cardId);
-    return buildResponse({ 
-      data: { 
-        desk: updated.desk 
-      }, 
-      message: 'Đã xóa card khỏi deck thành công' 
-    });
+  async deleteDeck(@Request() req, @Param('deckName') deckName: string) {
+    const updated = await this.usersService.deleteDeck(req.user.id, deckName);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Xóa deck thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('desk/save')
-  @ApiOperation({ 
-    summary: 'Lưu deck',
-    description: 'Lưu một deck với tên và danh sách card'
-  })
+  @Post('desk/select/:deckName')
+  @ApiOperation({ summary: 'Chọn deck hiện tại' })
   @ApiBearerAuth('JWT-auth')
-  @ApiBody({ type: SaveDeckDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Lưu deck thành công',
-  })
-  @ApiBadRequestResponse({
-    description: 'Dữ liệu đầu vào không hợp lệ hoặc card không có trong collection',
-  })
-  @ApiConflictResponse({
-    description: 'Tên deck đã tồn tại',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
-  async saveDeck(@Request() req, @Body() saveDeckDto: SaveDeckDto) {
-    const updated = await this.usersService.saveDeck(req.user.id, saveDeckDto.deckName, saveDeckDto.cardIds);
-    return buildResponse({ 
-      data: { 
-        desk: updated.desk 
-      }, 
-      message: 'Lưu deck thành công' 
-    });
+  async selectDeck(@Request() req, @Param('deckName') deckName: string) {
+    const updated = await this.usersService.selectDeck(req.user.id, deckName);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Đã chọn deck' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('desk/load/:deckName/:targetDeck')
-  @ApiOperation({ 
-    summary: 'Load deck đã lưu',
-    description: 'Load một deck đã lưu vào deck cụ thể (deck1, deck2, deck3)'
-  })
+  @Post('desk/rename/:deckName')
+  @ApiOperation({ summary: 'Đổi tên deck' })
   @ApiBearerAuth('JWT-auth')
-  @ApiParam({ 
-    name: 'deckName', 
-    description: 'Tên của deck đã lưu'
-  })
-  @ApiParam({ 
-    name: 'targetDeck', 
-    description: 'Deck đích (deck1, deck2, deck3)',
-    enum: ['deck1', 'deck2', 'deck3']
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Load deck thành công',
-  })
-  @ApiNotFoundResponse({
-    description: 'Không tìm thấy deck với tên này',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
-  async loadDeck(@Request() req, @Param('deckName') deckName: string, @Param('targetDeck') targetDeck: 'deck1' | 'deck2' | 'deck3') {
-    const updated = await this.usersService.loadDeck(req.user.id, deckName, targetDeck);
-    return buildResponse({ 
-      data: { 
-        desk: updated.desk 
-      }, 
-      message: 'Load deck thành công' 
-    });
+  @ApiBody({ type: RenameDeckDto })
+  async renameDeck(@Request() req, @Param('deckName') deckName: string, @Body() body: RenameDeckDto) {
+    const updated = await this.usersService.renameDeck(req.user.id, deckName, body.newName);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Đổi tên deck thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete('desk/saved/:deckName')
-  @ApiOperation({ 
-    summary: 'Xóa deck đã lưu',
-    description: 'Xóa một deck đã lưu khỏi danh sách saved decks'
-  })
+  @Post('desk/:deckName/cards/:cardId')
+  @ApiOperation({ summary: 'Thêm card vào deck theo tên' })
   @ApiBearerAuth('JWT-auth')
-  @ApiParam({ 
-    name: 'deckName', 
-    description: 'Tên của deck cần xóa'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Xóa deck thành công',
-  })
-  @ApiNotFoundResponse({
-    description: 'Không tìm thấy deck với tên này',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token không hợp lệ hoặc hết hạn',
-  })
-  async deleteSavedDeck(@Request() req, @Param('deckName') deckName: string) {
-    const updated = await this.usersService.deleteSavedDeck(req.user.id, deckName);
-    return buildResponse({ 
-      data: { 
-        desk: updated.desk 
-      }, 
-      message: 'Xóa deck thành công' 
-    });
+  async addCardToDeckByName(@Request() req, @Param('deckName') deckName: string, @Param('cardId') cardId: string) {
+    const updated = await this.usersService.addCardToDeckByName(req.user.id, deckName, cardId);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Đã thêm card vào deck' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('desk/:deckName/cards/:cardId')
+  @ApiOperation({ summary: 'Xóa card khỏi deck theo tên' })
+  @ApiBearerAuth('JWT-auth')
+  async removeCardFromDeckByName(@Request() req, @Param('deckName') deckName: string, @Param('cardId') cardId: string) {
+    const updated = await this.usersService.removeCardFromDeckByName(req.user.id, deckName, cardId);
+    return buildResponse({ data: { desk: updated.desk }, message: 'Đã xóa card khỏi deck' });
   }
 
   @UseGuards(JwtAuthGuard)

@@ -66,39 +66,18 @@ export class User {
   collection: Types.ObjectId[];
 
   @Prop({
-    type: {
-      activeCards: { type: [Types.ObjectId], default: [] },
-      deck1: { type: [Types.ObjectId], default: [] },
-      deck2: { type: [Types.ObjectId], default: [] },
-      deck3: { type: [Types.ObjectId], default: [] },
-      savedDecks: { 
-        type: [{
-          name: { type: String, required: true },
-          cards: { type: [Types.ObjectId], default: [] },
-          createdAt: { type: Date, default: Date.now }
-        }], 
-        default: [] 
-      }
-    },
-    default: {
-      activeCards: [],
-      deck1: [],
-      deck2: [],
-      deck3: [],
-      savedDecks: []
-    }
+    type: [{
+      name: { type: String, required: true },
+      cards: [{ type: Types.ObjectId, ref: 'Card' }],
+      isSelected: { type: Boolean, default: false }
+    }],
+    default: []
   })
   desk: {
-    activeCards: Types.ObjectId[];
-    deck1: Types.ObjectId[];
-    deck2: Types.ObjectId[];
-    deck3: Types.ObjectId[];
-    savedDecks: {
-      name: string;
-      cards: Types.ObjectId[];
-      createdAt: Date;
-    }[];
-  };
+    name: string;
+    cards: Types.ObjectId[];
+    isSelected: boolean;
+  }[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

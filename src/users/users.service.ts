@@ -313,14 +313,8 @@ export class UsersService {
     if (!finalUser) {
       throw new NotFoundException('Không thể tải lại user sau khi cập nhật');
     }
-    // Cập nhật cache chỉ số (hp/atk/def) dựa trên trang bị hiện tại
-    const totals = await this.calculateEffectiveStats(finalUser);
-    const cached = await this.userModel
-      .findByIdAndUpdate(userId, { hp: totals.hp, atk: totals.atk, def: totals.def }, { new: true })
-      .select('-password')
-      .exec();
-    const userToReturn = (cached ?? finalUser) as any;
-    return this.findByIdPopulated(userToReturn._id as any);
+    // Không ghi đè stats gốc vào DB; chỉ trả về user sau khi cập nhật trang bị
+    return this.findByIdPopulated(finalUser._id as any);
   }
 
   async equipOneFromInventory(userId: string, type: 'weapon' | 'armor' | 'helmet' | 'boots' | 'necklace' | 'ring', dto: EquipOneDto): Promise<User> {
@@ -380,14 +374,8 @@ export class UsersService {
     if (!finalUser) {
       throw new NotFoundException('Không thể tải lại user sau khi cập nhật');
     }
-    // Cập nhật cache chỉ số sau khi trang bị
-    const totals = await this.calculateEffectiveStats(finalUser);
-    const cached = await this.userModel
-      .findByIdAndUpdate(userId, { hp: totals.hp, atk: totals.atk, def: totals.def }, { new: true })
-      .select('-password')
-      .exec();
-    const userToReturn = (cached ?? finalUser) as any;
-    return this.findByIdPopulated(userToReturn._id as any);
+    // Không ghi đè stats gốc vào DB; chỉ trả về user sau khi cập nhật trang bị
+    return this.findByIdPopulated(finalUser._id as any);
   }
 
   async getEquippedItems(userId: string): Promise<any> {
@@ -433,14 +421,8 @@ export class UsersService {
     if (!finalUser) {
       throw new NotFoundException('Không thể tải lại user sau khi cập nhật');
     }
-    // Cập nhật cache chỉ số sau khi cởi trang bị
-    const totals = await this.calculateEffectiveStats(finalUser);
-    const cached = await this.userModel
-      .findByIdAndUpdate(userId, { hp: totals.hp, atk: totals.atk, def: totals.def }, { new: true })
-      .select('-password')
-      .exec();
-    const userToReturn = (cached ?? finalUser) as any;
-    return this.findByIdPopulated(userToReturn._id as any);
+    // Không ghi đè stats gốc vào DB; chỉ trả về user sau khi cập nhật trang bị
+    return this.findByIdPopulated(finalUser._id as any);
   }
 
   async addToCollection(userId: string, cardId: string): Promise<User> {
@@ -477,87 +459,31 @@ export class UsersService {
     return updated;
   }
 
-  async getCollection(userId: string): Promise<Card[]> {
+  async getCollection(userId: string): Promise<string[]> {
     // Kiểm tra user có tồn tại không
     const user = await this.userModel.findById(userId).select('collection').exec();
     if (!user) {
       throw new NotFoundException('Không tìm thấy user');
     }
 
-    // Nếu collection trống, trả về mảng rỗng
-    if (!user.collection || user.collection.length === 0) {
-      return [];
-    }
-
-    // Lấy thông tin chi tiết của các card trong collection
-    const cards = await this.cardModel
-      .find({ _id: { $in: user.collection } })
-      .exec();
-
-    return cards;
+    // Trả về danh sách ID (string)
+    const ids = (user.collection || []).map((id: any) => id.toString());
+    return ids;
   }
 
-  // Desk management methods
-  async addCardToDeck(userId: string, deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', cardId: string): Promise<User> {
-    if (!Types.ObjectId.isValid(cardId)) {
-      throw new BadRequestException('Card ID không hợp lệ');
-    }
-
-    const user = await this.userModel.findById(userId).exec();
+  // Desk (array) management methods
+  async getDesk(userId: string): Promise<any> {
+    const user = await this.userModel.findById(userId).select('desk').exec();
     if (!user) {
       throw new NotFoundException('Không tìm thấy user');
     }
-
-    // Kiểm tra card có trong collection không
-    if (!user.collection || !user.collection.includes(cardId as any)) {
-      throw new BadRequestException('Card không có trong collection');
-    }
-
-    // Kiểm tra card đã có trong deck chưa
-    const currentDeck = (user.desk as any)?.[deckType] || [];
-    if (currentDeck.includes(cardId as any)) {
-      throw new ConflictException('Card đã có trong deck này');
-    }
-
-    const updated = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $push: { [`desk.${deckType}`]: cardId as any } },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Không thể cập nhật deck');
-    }
-
-    return updated;
+    return Array.isArray((user as any).desk) ? (user as any).desk : [];
   }
 
-  async removeCardFromDeck(userId: string, deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', cardId: string): Promise<User> {
-    if (!Types.ObjectId.isValid(cardId)) {
-      throw new BadRequestException('Card ID không hợp lệ');
+  async createDeck(userId: string, name: string, cardIds: string[] = [], selected = false): Promise<User> {
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Tên deck không hợp lệ');
     }
-
-    const updated = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $pull: { [`desk.${deckType}`]: cardId as any } },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Không tìm thấy user hoặc không thể cập nhật deck');
-    }
-
-    return updated;
-  }
-
-  async saveDeck(userId: string, deckName: string, cardIds: string[]): Promise<User> {
-    // Validate cardIds
     for (const cardId of cardIds) {
       if (!Types.ObjectId.isValid(cardId)) {
         throw new BadRequestException(`Card ID ${cardId} không hợp lệ`);
@@ -569,13 +495,13 @@ export class UsersService {
       throw new NotFoundException('Không tìm thấy user');
     }
 
-    // Kiểm tra tên deck đã tồn tại chưa
-    const existingDecks = (user.desk as any)?.savedDecks || [];
-    if (existingDecks.some((deck: any) => deck.name === deckName)) {
+    // Tên không trùng
+    const desk = (user as any).desk || [];
+    if (desk.some((d: any) => d.name === name)) {
       throw new ConflictException('Tên deck đã tồn tại');
     }
 
-    // Kiểm tra tất cả card có trong collection không
+    // Card phải có trong collection
     const userCollection = user.collection || [];
     for (const cardId of cardIds) {
       if (!userCollection.includes(cardId as any)) {
@@ -583,86 +509,143 @@ export class UsersService {
       }
     }
 
-    const newDeck = {
-      name: deckName,
-      cards: cardIds as any[],
-      createdAt: new Date()
-    };
+    // Nếu chọn deck mới là selected, bỏ chọn deck khác
+    const updateOps: any = {};
+    if (selected) {
+      updateOps.$set = { 'desk.$[].isSelected': false } as any;
+    }
+
+    updateOps.$push = { desk: { name, cards: cardIds as any[], isSelected: selected } } as any;
 
     const updated = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $push: { 'desk.savedDecks': newDeck } },
-        { new: true }
-      )
+      .findByIdAndUpdate(userId, updateOps, { new: true })
       .select('-password')
       .exec();
 
     if (!updated) {
-      throw new NotFoundException('Không thể lưu deck');
+      throw new NotFoundException('Không thể tạo deck');
     }
-
     return updated;
   }
 
-  async loadDeck(userId: string, deckName: string, targetDeck: 'deck1' | 'deck2' | 'deck3'): Promise<User> {
-    const user = await this.userModel.findById(userId).exec();
-    if (!user) {
-      throw new NotFoundException('Không tìm thấy user');
-    }
-
-    const savedDecks = (user.desk as any)?.savedDecks || [];
-    const deck = savedDecks.find((d: any) => d.name === deckName);
-    
-    if (!deck) {
-      throw new NotFoundException('Không tìm thấy deck với tên này');
-    }
-
+  async deleteDeck(userId: string, deckName: string): Promise<User> {
     const updated = await this.userModel
       .findByIdAndUpdate(
         userId,
-        { $set: { [`desk.${targetDeck}`]: deck.cards } },
+        { $pull: { desk: { name: deckName } } as any },
         { new: true }
       )
       .select('-password')
       .exec();
-
-    if (!updated) {
-      throw new NotFoundException('Không thể load deck');
-    }
-
-    return updated;
-  }
-
-  async deleteSavedDeck(userId: string, deckName: string): Promise<User> {
-    const updated = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $pull: { 'desk.savedDecks': { name: deckName } } },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
-
     if (!updated) {
       throw new NotFoundException('Không tìm thấy user hoặc deck');
     }
-
     return updated;
   }
 
-  async getDesk(userId: string): Promise<any> {
+  async renameDeck(userId: string, oldName: string, newName: string): Promise<User> {
+    if (!newName || !newName.trim()) {
+      throw new BadRequestException('Tên deck mới không hợp lệ');
+    }
     const user = await this.userModel.findById(userId).select('desk').exec();
     if (!user) {
       throw new NotFoundException('Không tìm thấy user');
     }
+    const desk = (user as any).desk || [];
+    if (!desk.some((d: any) => d.name === oldName)) {
+      throw new NotFoundException('Không tìm thấy deck cần đổi tên');
+    }
+    if (desk.some((d: any) => d.name === newName)) {
+      throw new ConflictException('Tên deck mới đã tồn tại');
+    }
 
-    return user.desk || {
-      activeCards: [],
-      deck1: [],
-      deck2: [],
-      deck3: [],
-      savedDecks: []
-    };
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId },
+        { $set: { 'desk.$[d].name': newName } as any },
+        { new: true, arrayFilters: [{ 'd.name': oldName }] as any }
+      )
+      .select('-password')
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException('Không thể đổi tên deck');
+    }
+    return updated;
+  }
+
+  async selectDeck(userId: string, deckName: string): Promise<User> {
+    const user = await this.userModel.findById(userId).select('desk').exec();
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy user');
+    }
+    const desk = (user as any).desk || [];
+    if (!desk.some((d: any) => d.name === deckName)) {
+      throw new NotFoundException('Không tìm thấy deck');
+    }
+
+    // Bỏ chọn tất cả, sau đó chọn deckName
+    await this.userModel.updateOne({ _id: userId }, { $set: { 'desk.$[].isSelected': false } as any }).exec();
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, 'desk.name': deckName },
+        { $set: { 'desk.$.isSelected': true } as any },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Không thể chọn deck');
+    }
+    return updated;
+  }
+
+  async addCardToDeckByName(userId: string, deckName: string, cardId: string): Promise<User> {
+    if (!Types.ObjectId.isValid(cardId)) {
+      throw new BadRequestException('Card ID không hợp lệ');
+    }
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy user');
+    }
+    if (!user.collection || !user.collection.includes(cardId as any)) {
+      throw new BadRequestException('Card không có trong collection');
+    }
+
+    const existing = await this.userModel.findOne({ _id: userId, desk: { $elemMatch: { name: deckName, cards: cardId as any } } }).exec();
+    if (existing) {
+      throw new ConflictException('Card đã có trong deck này');
+    }
+
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, 'desk.name': deckName },
+        { $push: { 'desk.$.cards': cardId as any } as any },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Không thể cập nhật deck');
+    }
+    return updated;
+  }
+
+  async removeCardFromDeckByName(userId: string, deckName: string, cardId: string): Promise<User> {
+    if (!Types.ObjectId.isValid(cardId)) {
+      throw new BadRequestException('Card ID không hợp lệ');
+    }
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, 'desk.name': deckName },
+        { $pull: { 'desk.$.cards': cardId as any } as any },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Không tìm thấy user hoặc deck');
+    }
+    return updated;
   }
 }

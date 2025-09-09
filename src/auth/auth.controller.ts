@@ -52,7 +52,8 @@ export class AuthController {
   })
   async register(@Body() registerDto: RegisterDto) {
     const result = await this.authService.register(registerDto);
-    return buildResponse({ data: result, message: 'Đăng ký thành công' });
+    const wrapped = buildResponse({ data: result, message: 'Đăng ký thành công' });
+    return { ...wrapped, access_token: result.access_token } as any;
   }
 
   @Post('login')
