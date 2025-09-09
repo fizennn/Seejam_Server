@@ -61,6 +61,44 @@ export class User {
 
   @Prop({ type: [Types.ObjectId], default: [] })
   inventory: Types.ObjectId[];
+
+  @Prop({ type: [Types.ObjectId], default: [] })
+  collection: Types.ObjectId[];
+
+  @Prop({
+    type: {
+      activeCards: { type: [Types.ObjectId], default: [] },
+      deck1: { type: [Types.ObjectId], default: [] },
+      deck2: { type: [Types.ObjectId], default: [] },
+      deck3: { type: [Types.ObjectId], default: [] },
+      savedDecks: { 
+        type: [{
+          name: { type: String, required: true },
+          cards: { type: [Types.ObjectId], default: [] },
+          createdAt: { type: Date, default: Date.now }
+        }], 
+        default: [] 
+      }
+    },
+    default: {
+      activeCards: [],
+      deck1: [],
+      deck2: [],
+      deck3: [],
+      savedDecks: []
+    }
+  })
+  desk: {
+    activeCards: Types.ObjectId[];
+    deck1: Types.ObjectId[];
+    deck2: Types.ObjectId[];
+    deck3: Types.ObjectId[];
+    savedDecks: {
+      name: string;
+      cards: Types.ObjectId[];
+      createdAt: Date;
+    }[];
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

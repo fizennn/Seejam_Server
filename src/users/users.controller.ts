@@ -27,13 +27,31 @@ import {
   ApiNotFoundResponse,
   ApiCreatedResponse,
   ApiExcludeEndpoint,
+  ApiConflictResponse,
 } from '@nestjs/swagger';
 import { EquipInventoryDto, EquipOneDto } from './dto/equip-inventory.dto';
+import { SaveDeckDto } from './dto/desk.dto';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  private formatEquipResponse(user: any) {
+    const toId = (val: any) => (val && typeof val === 'object' ? (val._id ?? val) : val);
+    const equipment = {
+      weapon: toId(user.weapon) ?? null,
+      armor: toId(user.armor) ?? null,
+      helmet: toId(user.helmet) ?? null,
+      boots: toId(user.boots) ?? null,
+      necklace: toId(user.necklace) ?? null,
+      ring: toId(user.ring) ?? null,
+    };
+    const inventory = Array.isArray(user.inventory)
+      ? user.inventory.map((it: any) => toId(it))
+      : user.inventory;
+    return { equipment, inventory };
+  }
 
   @Post()
   @ApiExcludeEndpoint()
@@ -90,31 +108,50 @@ export class UsersController {
   })
   async getProfile(@Request() req) {
     const { user, effective } = await this.usersService.findOneWithCalculatedStats(req.user.id);
+    const desk = await this.usersService.getDesk(req.user.id);
+    const toId = (val: any) => (val && typeof val === 'object' ? (val._id ?? val) : val);
+    const weaponId = toId((user as any).weapon);
+    const armorId = toId((user as any).armor);
+    const helmetId = toId((user as any).helmet);
+    const bootsId = toId((user as any).boots);
+    const necklaceId = toId((user as any).necklace);
+    const ringId = toId((user as any).ring);
+    const inventoryIds = Array.isArray((user as any).inventory)
+      ? (user as any).inventory.map((it: any) => toId(it))
+      : (user as any).inventory;
     return buildResponse({
       data: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        isEmailVerified: user.isEmailVerified,
-        avatar: user.avatar,
-        isActive: user.isActive,
-        level: user.level,
-        hp: effective.hp,
-        atk: effective.atk,
-        def: effective.def,
-        weapon: user.weapon,
-        armor: user.armor,
-        helmet: user.helmet,
-        boots: user.boots,
-        necklace: user.necklace,
-        ring: user.ring,
-        inventory: user.inventory,
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          isEmailVerified: user.isEmailVerified,
+          avatar: user.avatar,
+          isActive: user.isActive,
+          level: user.level,
+        },
+        stats: {
+          hp: effective.hp,
+          atk: effective.atk,
+          def: effective.def,
+        },
+        equipment: {
+          weapon: weaponId,
+          armor: armorId,
+          helmet: helmetId,
+          boots: bootsId,
+          necklace: necklaceId,
+          ring: ringId,
+        },
+        inventory: inventoryIds,
+        collection: user.collection,
+        desk: desk,
       },
       message: 'Lấy profile thành công',
     });
   }
-
+  @ApiTags('inventory')
   @UseGuards(JwtAuthGuard)
   @Post('inventory/equip')
   @ApiExcludeEndpoint()
@@ -136,19 +173,7 @@ export class UsersController {
   })
   async equipFromInventory(@Request() req, @Body() equipDto: EquipInventoryDto) {
     const updated = await this.usersService.equipFromInventory(req.user.id, equipDto);
-    return buildResponse({ 
-      data: {
-        id: updated._id,
-        weapon: updated.weapon,
-        armor: updated.armor,
-        helmet: updated.helmet,
-        boots: updated.boots,
-        necklace: updated.necklace,
-        ring: updated.ring,
-        inventory: updated.inventory
-      }, 
-      message: 'Trang bị equipment thành công' 
-    });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị equipment thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -159,7 +184,7 @@ export class UsersController {
   async equipWeapon(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'weapon', dto);
-    return buildResponse({ data: updated, message: 'Trang bị weapon thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị weapon thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -170,7 +195,7 @@ export class UsersController {
   async equipArmor(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'armor', dto);
-    return buildResponse({ data: updated, message: 'Trang bị armor thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị armor thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -181,7 +206,7 @@ export class UsersController {
   async equipHelmet(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'helmet', dto);
-    return buildResponse({ data: updated, message: 'Trang bị helmet thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị helmet thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -192,7 +217,7 @@ export class UsersController {
   async equipBoots(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'boots', dto);
-    return buildResponse({ data: updated, message: 'Trang bị boots thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị boots thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -203,7 +228,7 @@ export class UsersController {
   async equipNecklace(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'necklace', dto);
-    return buildResponse({ data: updated, message: 'Trang bị necklace thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị necklace thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -214,7 +239,7 @@ export class UsersController {
   async equipRing(@Request() req, @Param('index', ParseIntPipe) index: number) {
     const dto: EquipOneDto = { index };
     const updated = await this.usersService.equipOneFromInventory(req.user.id, 'ring', dto);
-    return buildResponse({ data: updated, message: 'Trang bị ring thành công' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Trang bị ring thành công' });
   }
 
   // 6 endpoint cởi trang bị -> đưa vào inventory
@@ -224,7 +249,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipWeapon(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'weapon');
-    return buildResponse({ data: updated, message: 'Đã cởi weapon vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi weapon vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -233,7 +258,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipArmor(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'armor');
-    return buildResponse({ data: updated, message: 'Đã cởi armor vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi armor vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -242,7 +267,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipHelmet(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'helmet');
-    return buildResponse({ data: updated, message: 'Đã cởi helmet vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi helmet vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -251,7 +276,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipBoots(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'boots');
-    return buildResponse({ data: updated, message: 'Đã cởi boots vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi boots vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -260,7 +285,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipNecklace(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'necklace');
-    return buildResponse({ data: updated, message: 'Đã cởi necklace vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi necklace vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -269,7 +294,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async unequipRing(@Request() req) {
     const updated = await this.usersService.unequipOne(req.user.id, 'ring');
-    return buildResponse({ data: updated, message: 'Đã cởi ring vào inventory' });
+    return buildResponse({ data: this.formatEquipResponse(updated as any), message: 'Đã cởi ring vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -279,7 +304,7 @@ export class UsersController {
   @ApiParam({ name: 'equipmentId', description: 'ObjectId của equipment' })
   async addToInventory(@Request() req, @Param('equipmentId') equipmentId: string) {
     const updated = await this.usersService.addEquipmentToInventory(req.user.id, equipmentId);
-    return buildResponse({ data: { inventory: updated.inventory }, message: 'Đã thêm vào inventory' });
+    return buildResponse({ data: { inventory: (updated as any).inventory }, message: 'Đã thêm vào inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -289,7 +314,7 @@ export class UsersController {
   @ApiParam({ name: 'equipmentId', description: 'ObjectId của equipment' })
   async removeFromInventory(@Request() req, @Param('equipmentId') equipmentId: string) {
     const updated = await this.usersService.removeEquipmentFromInventory(req.user.id, equipmentId);
-    return buildResponse({ data: { inventory: updated.inventory }, message: 'Đã xóa khỏi inventory' });
+    return buildResponse({ data: { inventory: (updated as any).inventory }, message: 'Đã xóa khỏi inventory' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -299,7 +324,262 @@ export class UsersController {
   @ApiParam({ name: 'index', description: 'Vị trí phần tử trong mảng inventory (0-based)' })
   async removeFromInventoryByIndex(@Request() req, @Param('index') index: string) {
     const updated = await this.usersService.removeEquipmentFromInventoryByIndex(req.user.id, Number(index));
-    return buildResponse({ data: { inventory: updated.inventory }, message: 'Đã xóa 1 phần tử khỏi inventory theo index' });
+    return buildResponse({ data: { inventory: (updated as any).inventory }, message: 'Đã xóa 1 phần tử khỏi inventory theo index' });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('collection')
+  @ApiOperation({ 
+    summary: 'Lấy danh sách card trong collection của user hiện tại',
+    description: 'Lấy tất cả card trong bộ sưu tập của người dùng đang đăng nhập'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy danh sách collection thành công',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async getCollection(@Request() req) {
+    const collection = await this.usersService.getCollection(req.user.id);
+    return buildResponse({ 
+      data: collection, 
+      message: 'Lấy danh sách collection thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('collection/:cardId')
+  @ApiOperation({ 
+    summary: 'Thêm card vào collection của user hiện tại',
+    description: 'Thêm một card vào bộ sưu tập của người dùng đang đăng nhập'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ 
+    name: 'cardId', 
+    description: 'ObjectId của card cần thêm vào collection',
+    example: '507f1f77bcf86cd799439011'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Thêm card vào collection thành công',
+  })
+  @ApiBadRequestResponse({
+    description: 'Card ID không hợp lệ',
+  })
+  @ApiConflictResponse({
+    description: 'Card đã có trong collection',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async addToCollection(@Request() req, @Param('cardId') cardId: string) {
+    const updated = await this.usersService.addToCollection(req.user.id, cardId);
+    return buildResponse({ 
+      data: { 
+        collection: updated.collection 
+      }, 
+      message: 'Đã thêm card vào collection thành công' 
+    });
+  }
+
+  // Desk management endpoints
+  @UseGuards(JwtAuthGuard)
+  @Get('desk')
+  @ApiOperation({ 
+    summary: 'Lấy thông tin desk của user hiện tại',
+    description: 'Lấy thông tin về các deck và saved decks của người dùng'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy thông tin desk thành công',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async getDesk(@Request() req) {
+    const desk = await this.usersService.getDesk(req.user.id);
+    return buildResponse({ 
+      data: desk, 
+      message: 'Lấy thông tin desk thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('desk/:deckType/:cardId')
+  @ApiOperation({ 
+    summary: 'Thêm card vào deck',
+    description: 'Thêm một card vào deck cụ thể (activeCards, deck1, deck2, deck3)'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ 
+    name: 'deckType', 
+    description: 'Loại deck (activeCards, deck1, deck2, deck3)',
+    enum: ['activeCards', 'deck1', 'deck2', 'deck3']
+  })
+  @ApiParam({ 
+    name: 'cardId', 
+    description: 'ObjectId của card cần thêm vào deck',
+    example: '507f1f77bcf86cd799439011'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Thêm card vào deck thành công',
+  })
+  @ApiBadRequestResponse({
+    description: 'Card ID không hợp lệ hoặc card không có trong collection',
+  })
+  @ApiConflictResponse({
+    description: 'Card đã có trong deck này',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async addCardToDeck(@Request() req, @Param('deckType') deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', @Param('cardId') cardId: string) {
+    const updated = await this.usersService.addCardToDeck(req.user.id, deckType, cardId);
+    return buildResponse({ 
+      data: { 
+        desk: updated.desk 
+      }, 
+      message: 'Đã thêm card vào deck thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('desk/:deckType/:cardId')
+  @ApiOperation({ 
+    summary: 'Xóa card khỏi deck',
+    description: 'Xóa một card khỏi deck cụ thể'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ 
+    name: 'deckType', 
+    description: 'Loại deck (activeCards, deck1, deck2, deck3)',
+    enum: ['activeCards', 'deck1', 'deck2', 'deck3']
+  })
+  @ApiParam({ 
+    name: 'cardId', 
+    description: 'ObjectId của card cần xóa khỏi deck',
+    example: '507f1f77bcf86cd799439011'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Xóa card khỏi deck thành công',
+  })
+  @ApiBadRequestResponse({
+    description: 'Card ID không hợp lệ',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async removeCardFromDeck(@Request() req, @Param('deckType') deckType: 'activeCards' | 'deck1' | 'deck2' | 'deck3', @Param('cardId') cardId: string) {
+    const updated = await this.usersService.removeCardFromDeck(req.user.id, deckType, cardId);
+    return buildResponse({ 
+      data: { 
+        desk: updated.desk 
+      }, 
+      message: 'Đã xóa card khỏi deck thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('desk/save')
+  @ApiOperation({ 
+    summary: 'Lưu deck',
+    description: 'Lưu một deck với tên và danh sách card'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiBody({ type: SaveDeckDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Lưu deck thành công',
+  })
+  @ApiBadRequestResponse({
+    description: 'Dữ liệu đầu vào không hợp lệ hoặc card không có trong collection',
+  })
+  @ApiConflictResponse({
+    description: 'Tên deck đã tồn tại',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async saveDeck(@Request() req, @Body() saveDeckDto: SaveDeckDto) {
+    const updated = await this.usersService.saveDeck(req.user.id, saveDeckDto.deckName, saveDeckDto.cardIds);
+    return buildResponse({ 
+      data: { 
+        desk: updated.desk 
+      }, 
+      message: 'Lưu deck thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('desk/load/:deckName/:targetDeck')
+  @ApiOperation({ 
+    summary: 'Load deck đã lưu',
+    description: 'Load một deck đã lưu vào deck cụ thể (deck1, deck2, deck3)'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ 
+    name: 'deckName', 
+    description: 'Tên của deck đã lưu'
+  })
+  @ApiParam({ 
+    name: 'targetDeck', 
+    description: 'Deck đích (deck1, deck2, deck3)',
+    enum: ['deck1', 'deck2', 'deck3']
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Load deck thành công',
+  })
+  @ApiNotFoundResponse({
+    description: 'Không tìm thấy deck với tên này',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async loadDeck(@Request() req, @Param('deckName') deckName: string, @Param('targetDeck') targetDeck: 'deck1' | 'deck2' | 'deck3') {
+    const updated = await this.usersService.loadDeck(req.user.id, deckName, targetDeck);
+    return buildResponse({ 
+      data: { 
+        desk: updated.desk 
+      }, 
+      message: 'Load deck thành công' 
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('desk/saved/:deckName')
+  @ApiOperation({ 
+    summary: 'Xóa deck đã lưu',
+    description: 'Xóa một deck đã lưu khỏi danh sách saved decks'
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({ 
+    name: 'deckName', 
+    description: 'Tên của deck cần xóa'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Xóa deck thành công',
+  })
+  @ApiNotFoundResponse({
+    description: 'Không tìm thấy deck với tên này',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token không hợp lệ hoặc hết hạn',
+  })
+  async deleteSavedDeck(@Request() req, @Param('deckName') deckName: string) {
+    const updated = await this.usersService.deleteSavedDeck(req.user.id, deckName);
+    return buildResponse({ 
+      data: { 
+        desk: updated.desk 
+      }, 
+      message: 'Xóa deck thành công' 
+    });
   }
 
   @UseGuards(JwtAuthGuard)

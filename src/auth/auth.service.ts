@@ -21,7 +21,7 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
     if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
+      const { password: _, ...result } = user;
       return result;
     }
     return null;
@@ -33,31 +33,15 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
 
-    // Lấy thông tin user đầy đủ từ database
-    const fullUser = await this.usersService.findByEmail(loginDto.email);
-    if (!fullUser) {
-      throw new UnauthorizedException('Không tìm thấy thông tin user');
-    }
-
     const payload = {
-      email: fullUser.email,
-      sub: fullUser._id,
-      role: fullUser.role,
+      email: user.email,
+      sub: user._id,
+      role: user.role,
     };
     const access_token = this.jwtService.sign(payload);
 
     return {
       access_token,
-      user: {
-        id: fullUser._id,
-        email: fullUser.email,
-        fullName: fullUser.fullName,
-        role: fullUser.role,
-        isEmailVerified: fullUser.isEmailVerified,
-        avatar: fullUser.avatar,
-        isActive: fullUser.isActive,
-        inventory: (fullUser as any).inventory,
-      },
     };
   }
 
@@ -67,16 +51,6 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        isEmailVerified: user.isEmailVerified,
-        avatar: user.avatar,
-        isActive: user.isActive,
-        inventory: (user as any).inventory,
-      },
     };
   }
 
@@ -106,16 +80,6 @@ export class AuthService {
 
     return {
       access_token,
-      user: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        isEmailVerified: user.isEmailVerified,
-        avatar: user.avatar,
-        isActive: user.isActive,
-        inventory: (user as any).inventory,
-      },
     };
   }
 

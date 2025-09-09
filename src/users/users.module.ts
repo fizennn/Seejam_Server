@@ -4,12 +4,14 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User, UserSchema } from './schemas/user.schema';
 import { Equipment, EquipmentSchema } from '../equipment/schemas/equipment.schema';
+import { Card, CardSchema } from '../card/schemas/card.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
-      { name: Equipment.name, schema: EquipmentSchema }
+      { name: Equipment.name, schema: EquipmentSchema },
+      { name: Card.name, schema: CardSchema }
     ])
   ],
   controllers: [UsersController],
