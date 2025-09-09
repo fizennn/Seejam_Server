@@ -393,7 +393,7 @@ export class UsersController {
   async getDesk(@Request() req) {
     const userId = req.user?.id ?? req.user?.sub ?? req.user?._id;
     const desk = await this.usersService.getDesk(userId);
-    return buildResponse({ data: desk, message: 'Lấy desk thành công' });
+    return buildResponse({ data: { desk }, message: 'Lấy desk thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -434,21 +434,22 @@ export class UsersController {
     return buildResponse({ data: { desk: updated.desk }, message: 'Đổi tên deck thành công' });
   }
 
+  // Desk by Id variants
   @UseGuards(JwtAuthGuard)
-  @Post('desk/:deckName/cards/:cardId')
-  @ApiOperation({ summary: 'Thêm card vào deck theo tên' })
+  @Post('desk/:deskId/cards/:cardId')
+  @ApiOperation({ summary: 'Thêm card vào deck theo deskId' })
   @ApiBearerAuth('JWT-auth')
-  async addCardToDeckByName(@Request() req, @Param('deckName') deckName: string, @Param('cardId') cardId: string) {
-    const updated = await this.usersService.addCardToDeckByName(req.user.id, deckName, cardId);
+  async addCardToDeckById(@Request() req, @Param('deskId') deskId: string, @Param('cardId') cardId: string) {
+    const updated = await this.usersService.addCardToDeckById(req.user.id, deskId, cardId);
     return buildResponse({ data: { desk: updated.desk }, message: 'Đã thêm card vào deck' });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete('desk/:deckName/cards/:cardId')
-  @ApiOperation({ summary: 'Xóa card khỏi deck theo tên' })
+  @Delete('desk/:deskId/cards/:cardId')
+  @ApiOperation({ summary: 'Xóa card khỏi deck theo deskId' })
   @ApiBearerAuth('JWT-auth')
-  async removeCardFromDeckByName(@Request() req, @Param('deckName') deckName: string, @Param('cardId') cardId: string) {
-    const updated = await this.usersService.removeCardFromDeckByName(req.user.id, deckName, cardId);
+  async removeCardFromDeckById(@Request() req, @Param('deskId') deskId: string, @Param('cardId') cardId: string) {
+    const updated = await this.usersService.removeCardFromDeckById(req.user.id, deskId, cardId);
     return buildResponse({ data: { desk: updated.desk }, message: 'Đã xóa card khỏi deck' });
   }
 

@@ -648,4 +648,66 @@ export class UsersService {
     }
     return updated;
   }
+
+  async addCardToDeckById(userId: string, deskId: string, cardId: string): Promise<User> {
+    if (!Types.ObjectId.isValid(cardId)) {
+      throw new BadRequestException('Card ID không hợp lệ');
+    }
+    if (!Types.ObjectId.isValid(deskId)) {
+      throw new BadRequestException('deskId không hợp lệ');
+    }
+
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy user');
+    }
+
+    if (!user.collection || !user.collection.includes(cardId as any)) {
+      throw new BadRequestException('Card không có trong collection');
+    }
+
+    // Check duplicate
+    const duplicate = await this.userModel
+      .findOne({ _id: userId, desk: { $elemMatch: { _id: deskId as any, cards: cardId as any } } })
+      .select('_id')
+      .exec();
+    if (duplicate) {
+      throw new ConflictException('Card đã có trong deck này');
+    }
+
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, 'desk._id': deskId as any },
+        { $push: { 'desk.$.cards': cardId as any } as any },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Không thể cập nhật deck');
+    }
+    return updated;
+  }
+
+  async removeCardFromDeckById(userId: string, deskId: string, cardId: string): Promise<User> {
+    if (!Types.ObjectId.isValid(cardId)) {
+      throw new BadRequestException('Card ID không hợp lệ');
+    }
+    if (!Types.ObjectId.isValid(deskId)) {
+      throw new BadRequestException('deskId không hợp lệ');
+    }
+
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, 'desk._id': deskId as any },
+        { $pull: { 'desk.$.cards': cardId as any } as any },
+        { new: true }
+      )
+      .select('-password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Không tìm thấy user hoặc deck');
+    }
+    return updated;
+  }
 }
