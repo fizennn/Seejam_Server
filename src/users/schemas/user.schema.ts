@@ -62,21 +62,34 @@ export class User {
   @Prop({ type: [Types.ObjectId], default: [] })
   inventory: Types.ObjectId[];
 
-  @Prop({ type: [Types.ObjectId], default: [] })
-  collection: Types.ObjectId[];
+  @Prop({
+    type: [{
+      cardId: { type: Types.ObjectId, ref: 'Card', required: true },
+      quantity: { type: Number, default: 1, min: 1 }
+    }],
+    default: []
+  })
+  collection: {
+    cardId: Types.ObjectId;
+    quantity: number;
+  }[];
 
   @Prop({
     type: [{
       name: { type: String, required: true },
-      cards: [{ type: Types.ObjectId, ref: 'Card' }],
-      isSelected: { type: Boolean, default: false }
+      cards: [{
+        cardId: { type: Types.ObjectId, ref: 'Card', required: true },
+        quantity: { type: Number, default: 1, min: 1 }
+      }]
     }],
     default: []
   })
   desk: {
     name: string;
-    cards: Types.ObjectId[];
-    isSelected: boolean;
+    cards: {
+      cardId: Types.ObjectId;
+      quantity: number;
+    }[];
   }[];
 }
 

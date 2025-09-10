@@ -54,6 +54,16 @@ export class UsersController {
     return { equipment, inventory };
   }
 
+  private formatDeskResponse(desk: any[]) {
+    return desk?.map((deck: any) => ({
+      name: deck.name,
+      cards: deck.cards?.map((card: any) => ({
+        cardId: card.cardId?.toString() || card.toString(),
+        quantity: card.quantity || 1
+      })) || []
+    })) || [];
+  }
+
   @Post()
   @ApiExcludeEndpoint()
   @ApiOperation({
@@ -147,7 +157,7 @@ export class UsersController {
         },
         inventory: inventoryIds,
         collection: user.collection,
-        desk: desk,
+        desk: this.formatDeskResponse(desk),
       },
       message: 'Lấy profile thành công',
     });
@@ -393,7 +403,7 @@ export class UsersController {
   async getDesk(@Request() req) {
     const userId = req.user?.id ?? req.user?.sub ?? req.user?._id;
     const desk = await this.usersService.getDesk(userId);
-    return buildResponse({ data: { desk }, message: 'Lấy desk thành công' });
+    return buildResponse({ data: { desk: this.formatDeskResponse(desk) }, message: 'Lấy desk thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -402,8 +412,8 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiBody({ type: CreateDeckDto })
   async createDeck(@Request() req, @Body() body: CreateDeckDto) {
-    const updated = await this.usersService.createDeck(req.user.id, body.name, body.cardIds ?? [], body.selected ?? false);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Tạo deck thành công' });
+    const updated = await this.usersService.createDeck(req.user.id, body.name, body.cardIds ?? []);
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Tạo deck thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -412,7 +422,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async deleteDeck(@Request() req, @Param('deckName') deckName: string) {
     const updated = await this.usersService.deleteDeck(req.user.id, deckName);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Xóa deck thành công' });
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Xóa deck thành công' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -421,7 +431,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async selectDeck(@Request() req, @Param('deckName') deckName: string) {
     const updated = await this.usersService.selectDeck(req.user.id, deckName);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Đã chọn deck' });
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Đã chọn deck' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -431,7 +441,7 @@ export class UsersController {
   @ApiBody({ type: RenameDeckDto })
   async renameDeck(@Request() req, @Param('deckName') deckName: string, @Body() body: RenameDeckDto) {
     const updated = await this.usersService.renameDeck(req.user.id, deckName, body.newName);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Đổi tên deck thành công' });
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Đổi tên deck thành công' });
   }
 
   // Desk by Id variants
@@ -441,7 +451,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async addCardToDeckById(@Request() req, @Param('deskId') deskId: string, @Param('cardId') cardId: string) {
     const updated = await this.usersService.addCardToDeckById(req.user.id, deskId, cardId);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Đã thêm card vào deck' });
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Đã thêm card vào deck' });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -450,7 +460,7 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   async removeCardFromDeckById(@Request() req, @Param('deskId') deskId: string, @Param('cardId') cardId: string) {
     const updated = await this.usersService.removeCardFromDeckById(req.user.id, deskId, cardId);
-    return buildResponse({ data: { desk: updated.desk }, message: 'Đã xóa card khỏi deck' });
+    return buildResponse({ data: { desk: this.formatDeskResponse((updated as any).desk) }, message: 'Đã xóa card khỏi deck' });
   }
 
   @UseGuards(JwtAuthGuard)

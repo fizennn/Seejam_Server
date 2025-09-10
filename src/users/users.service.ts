@@ -438,19 +438,35 @@ export class UsersService {
     }
 
     // Kiểm tra card đã có trong collection chưa
-    if (user.collection && user.collection.includes(cardId as any)) {
-      throw new ConflictException('Card đã có trong collection');
-    }
+    const existingCardIndex = user.collection?.findIndex(
+      (item: any) => item.cardId?.toString() === cardId
+    );
 
-    // Thêm card vào collection
-    const updated = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $push: { collection: cardId as any } },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
+    let updated;
+    if (existingCardIndex !== undefined && existingCardIndex >= 0) {
+      // Card đã có, tăng quantity lên 1
+      const updateQuery = {};
+      updateQuery[`collection.${existingCardIndex}.quantity`] = 1; // Tăng +1
+      
+      updated = await this.userModel
+        .findByIdAndUpdate(
+          userId,
+          { $inc: updateQuery },
+          { new: true }
+        )
+        .select('-password')
+        .exec();
+    } else {
+      // Card chưa có, thêm mới với quantity = 1
+      updated = await this.userModel
+        .findByIdAndUpdate(
+          userId,
+          { $push: { collection: { cardId: cardId as any, quantity: 1 } } },
+          { new: true }
+        )
+        .select('-password')
+        .exec();
+    }
 
     if (!updated) {
       throw new NotFoundException('Không thể cập nhật collection');
@@ -459,16 +475,19 @@ export class UsersService {
     return updated;
   }
 
-  async getCollection(userId: string): Promise<string[]> {
+  async getCollection(userId: string): Promise<{ cardId: string; quantity: number }[]> {
     // Kiểm tra user có tồn tại không
     const user = await this.userModel.findById(userId).select('collection').exec();
     if (!user) {
       throw new NotFoundException('Không tìm thấy user');
     }
 
-    // Trả về danh sách ID (string)
-    const ids = (user.collection || []).map((id: any) => id.toString());
-    return ids;
+    // Trả về danh sách collection với cardId và quantity
+    const collection = (user.collection || []).map((item: any) => ({
+      cardId: item.cardId?.toString() || item.toString(),
+      quantity: item.quantity ?? 0
+    }));
+    return collection;
   }
 
   // Desk (array) management methods
@@ -480,10 +499,16 @@ export class UsersService {
     return Array.isArray((user as any).desk) ? (user as any).desk : [];
   }
 
-  async createDeck(userId: string, name: string, cardIds: string[] = [], selected = false): Promise<User> {
+  async createDeck(userId: string, name: string, cardIds: string[] = []): Promise<User> {
     if (!name || !name.trim()) {
       throw new BadRequestException('Tên deck không hợp lệ');
     }
+    
+    // Kiểm tra giới hạn số lượng thẻ trong deck
+    if (cardIds.length > 40) {
+      throw new BadRequestException('Deck không được quá 40 thẻ');
+    }
+    
     for (const cardId of cardIds) {
       if (!Types.ObjectId.isValid(cardId)) {
         throw new BadRequestException(`Card ID ${cardId} không hợp lệ`);
@@ -501,21 +526,38 @@ export class UsersService {
       throw new ConflictException('Tên deck đã tồn tại');
     }
 
-    // Card phải có trong collection
+    // Card phải có trong collection và thêm với quantity = 1
     const userCollection = user.collection || [];
+    const cardsWithQuantity: { cardId: string; quantity: number }[] = [];
+    const collectionUpdates: any = {};
+    
     for (const cardId of cardIds) {
-      if (!userCollection.includes(cardId as any)) {
+      const collectionItem = userCollection.find((item: any) => 
+        item.cardId?.toString() === cardId || item.toString() === cardId
+      );
+      if (!collectionItem) {
         throw new BadRequestException(`Card ${cardId} không có trong collection`);
       }
+      
+      // Kiểm tra quantity trong collection có đủ không
+      const collectionQuantity = collectionItem.quantity ?? 0;
+      if (collectionQuantity <= 0) {
+        throw new BadRequestException(`Không đủ card ${cardId} trong collection`);
+      }
+      
+      // Thêm card với quantity = 1 (mỗi card trong deck có quantity = 1)
+      cardsWithQuantity.push({ cardId, quantity: 1 });
+      
+      // Chuẩn bị update collection (trừ 1 cho mỗi card)
+      const collectionIndex = userCollection.findIndex((item: any) => 
+        item.cardId?.toString() === cardId || item.toString() === cardId
+      );
+      collectionUpdates[`collection.${collectionIndex}.quantity`] = -1;
     }
 
-    // Nếu chọn deck mới là selected, bỏ chọn deck khác
     const updateOps: any = {};
-    if (selected) {
-      updateOps.$set = { 'desk.$[].isSelected': false } as any;
-    }
-
-    updateOps.$push = { desk: { name, cards: cardIds as any[], isSelected: selected } } as any;
+    updateOps.$push = { desk: { name, cards: cardsWithQuantity } } as any;
+    updateOps.$inc = collectionUpdates;
 
     const updated = await this.userModel
       .findByIdAndUpdate(userId, updateOps, { new: true })
@@ -584,20 +626,8 @@ export class UsersService {
       throw new NotFoundException('Không tìm thấy deck');
     }
 
-    // Bỏ chọn tất cả, sau đó chọn deckName
-    await this.userModel.updateOne({ _id: userId }, { $set: { 'desk.$[].isSelected': false } as any }).exec();
-    const updated = await this.userModel
-      .findOneAndUpdate(
-        { _id: userId, 'desk.name': deckName },
-        { $set: { 'desk.$.isSelected': true } as any },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
-    if (!updated) {
-      throw new NotFoundException('Không thể chọn deck');
-    }
-    return updated;
+    // Trả về user hiện tại vì không còn logic chọn deck
+    return user;
   }
 
   async addCardToDeckByName(userId: string, deckName: string, cardId: string): Promise<User> {
@@ -608,23 +638,75 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('Không tìm thấy user');
     }
-    if (!user.collection || !user.collection.includes(cardId as any)) {
+    
+    // Kiểm tra card có trong collection không
+    const collectionItem = user.collection?.find((item: any) => 
+      item.cardId?.toString() === cardId || item.toString() === cardId
+    );
+    if (!collectionItem) {
       throw new BadRequestException('Card không có trong collection');
     }
 
-    const existing = await this.userModel.findOne({ _id: userId, desk: { $elemMatch: { name: deckName, cards: cardId as any } } }).exec();
-    if (existing) {
-      throw new ConflictException('Card đã có trong deck này');
+    // Kiểm tra card đã có trong deck chưa
+    const existing = await this.userModel.findOne({ 
+      _id: userId, 
+      desk: { 
+        $elemMatch: { 
+          name: deckName, 
+          'cards.cardId': cardId as any 
+        } 
+      } 
+    }).exec();
+
+    // Kiểm tra quantity trong collection có đủ không
+    const collectionQuantity = collectionItem.quantity ?? 0;
+    if (collectionQuantity <= 0) {
+      throw new BadRequestException('Không đủ card trong collection');
     }
 
-    const updated = await this.userModel
-      .findOneAndUpdate(
-        { _id: userId, 'desk.name': deckName },
-        { $push: { 'desk.$.cards': cardId as any } as any },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
+    let updated;
+    if (existing) {
+      // Card đã có, tăng quantity lên 1 và trừ 1 trong collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk.name': deckName, 'desk.cards.cardId': cardId as any },
+          { 
+            $inc: { 
+              'desk.$[deck].cards.$[card].quantity': 1,
+              'collection.$[coll].quantity': -1
+            } as any 
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'deck.name': deckName },
+              { 'card.cardId': cardId as any },
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    } else {
+      // Card chưa có, thêm mới với quantity = 1 và trừ 1 trong collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk.name': deckName },
+          { 
+            $push: { 'desk.$.cards': { cardId: cardId as any, quantity: 1 } } as any,
+            $inc: { 'collection.$[coll].quantity': -1 } as any
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    }
+    
     if (!updated) {
       throw new NotFoundException('Không thể cập nhật deck');
     }
@@ -635,16 +717,68 @@ export class UsersService {
     if (!Types.ObjectId.isValid(cardId)) {
       throw new BadRequestException('Card ID không hợp lệ');
     }
-    const updated = await this.userModel
-      .findOneAndUpdate(
-        { _id: userId, 'desk.name': deckName },
-        { $pull: { 'desk.$.cards': cardId as any } as any },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
+    
+    // Tìm card trong deck
+    const user = await this.userModel.findById(userId).select('desk').exec();
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy user');
+    }
+    
+    const deck = (user as any).desk?.find((d: any) => d.name === deckName);
+    if (!deck) {
+      throw new NotFoundException('Không tìm thấy deck');
+    }
+    
+    const card = deck.cards?.find((c: any) => c.cardId?.toString() === cardId);
+    if (!card) {
+      throw new NotFoundException('Không tìm thấy card trong deck');
+    }
+    
+    let updated;
+    if (card.quantity > 1) {
+      // Giảm quantity xuống 1 và cộng 1 vào collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk.name': deckName, 'desk.cards.cardId': cardId as any },
+          { 
+            $inc: { 
+              'desk.$[deck].cards.$[card].quantity': -1,
+              'collection.$[coll].quantity': 1
+            } as any 
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'deck.name': deckName },
+              { 'card.cardId': cardId as any },
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    } else {
+      // Xóa card hoàn toàn và cộng 1 vào collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk.name': deckName },
+          { 
+            $pull: { 'desk.$.cards': { cardId: cardId as any } } as any,
+            $inc: { 'collection.$[coll].quantity': 1 } as any
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    }
+    
     if (!updated) {
-      throw new NotFoundException('Không tìm thấy user hoặc deck');
+      throw new NotFoundException('Không thể cập nhật deck');
     }
     return updated;
   }
@@ -662,27 +796,89 @@ export class UsersService {
       throw new NotFoundException('Không tìm thấy user');
     }
 
-    if (!user.collection || !user.collection.includes(cardId as any)) {
+    // Tìm deck và kiểm tra số lượng thẻ hiện tại
+    const deck = (user as any).desk?.find((d: any) => d._id?.toString() === deskId);
+    if (!deck) {
+      throw new NotFoundException('Không tìm thấy deck');
+    }
+    
+    // Kiểm tra giới hạn 40 thẻ trong deck
+    const currentCardCount = deck.cards?.reduce((total: number, card: any) => total + (card.quantity || 1), 0) || 0;
+    if (currentCardCount >= 40) {
+      throw new BadRequestException('Deck đã đạt giới hạn tối đa 40 thẻ');
+    }
+
+    // Kiểm tra card có trong collection không
+    const collectionItem = user.collection?.find((item: any) => 
+      item.cardId?.toString() === cardId || item.toString() === cardId
+    );
+    if (!collectionItem) {
       throw new BadRequestException('Card không có trong collection');
     }
 
     // Check duplicate
     const duplicate = await this.userModel
-      .findOne({ _id: userId, desk: { $elemMatch: { _id: deskId as any, cards: cardId as any } } })
+      .findOne({ 
+        _id: userId, 
+        desk: { 
+          $elemMatch: { 
+            _id: deskId as any, 
+            'cards.cardId': cardId as any 
+          } 
+        } 
+      })
       .select('_id')
       .exec();
-    if (duplicate) {
-      throw new ConflictException('Card đã có trong deck này');
+
+    // Kiểm tra quantity trong collection có đủ không
+    const collectionQuantity = collectionItem.quantity ?? 0;
+    if (collectionQuantity <= 0) {
+      throw new BadRequestException('Không đủ card trong collection');
     }
 
-    const updated = await this.userModel
-      .findOneAndUpdate(
-        { _id: userId, 'desk._id': deskId as any },
-        { $push: { 'desk.$.cards': cardId as any } as any },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
+    let updated;
+    if (duplicate) {
+      // Card đã có, tăng quantity lên 1 và trừ 1 trong collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk._id': deskId as any, 'desk.cards.cardId': cardId as any },
+          { 
+            $inc: { 
+              'desk.$[deck].cards.$[card].quantity': 1,
+              'collection.$[coll].quantity': -1
+            } as any 
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'deck._id': deskId as any },
+              { 'card.cardId': cardId as any },
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    } else {
+      // Card chưa có, thêm mới với quantity = 1 và trừ 1 trong collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk._id': deskId as any },
+          { 
+            $push: { 'desk.$.cards': { cardId: cardId as any, quantity: 1 } } as any,
+            $inc: { 'collection.$[coll].quantity': -1 } as any
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    }
+    
     if (!updated) {
       throw new NotFoundException('Không thể cập nhật deck');
     }
@@ -697,16 +893,67 @@ export class UsersService {
       throw new BadRequestException('deskId không hợp lệ');
     }
 
-    const updated = await this.userModel
-      .findOneAndUpdate(
-        { _id: userId, 'desk._id': deskId as any },
-        { $pull: { 'desk.$.cards': cardId as any } as any },
-        { new: true }
-      )
-      .select('-password')
-      .exec();
+    // Tìm card trong deck
+    const user = await this.userModel.findById(userId).select('desk').exec();
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy user');
+    }
+    
+    const deck = (user as any).desk?.find((d: any) => d._id?.toString() === deskId);
+    if (!deck) {
+      throw new NotFoundException('Không tìm thấy deck');
+    }
+    
+    const card = deck.cards?.find((c: any) => c.cardId?.toString() === cardId);
+    if (!card) {
+      throw new NotFoundException('Không tìm thấy card trong deck');
+    }
+    
+    let updated;
+    if (card.quantity > 1) {
+      // Giảm quantity xuống 1 và cộng 1 vào collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk._id': deskId as any, 'desk.cards.cardId': cardId as any },
+          { 
+            $inc: { 
+              'desk.$[deck].cards.$[card].quantity': -1,
+              'collection.$[coll].quantity': 1
+            } as any 
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'deck._id': deskId as any },
+              { 'card.cardId': cardId as any },
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    } else {
+      // Xóa card hoàn toàn và cộng 1 vào collection
+      updated = await this.userModel
+        .findOneAndUpdate(
+          { _id: userId, 'desk._id': deskId as any },
+          { 
+            $pull: { 'desk.$.cards': { cardId: cardId as any } } as any,
+            $inc: { 'collection.$[coll].quantity': 1 } as any
+          },
+          { 
+            new: true,
+            arrayFilters: [
+              { 'coll.cardId': cardId as any }
+            ]
+          }
+        )
+        .select('-password')
+        .exec();
+    }
+    
     if (!updated) {
-      throw new NotFoundException('Không tìm thấy user hoặc deck');
+      throw new NotFoundException('Không thể cập nhật deck');
     }
     return updated;
   }

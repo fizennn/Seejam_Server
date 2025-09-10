@@ -27,7 +27,7 @@ export class SaveDeckDto {
   })
   @IsArray()
   @ArrayMinSize(1, { message: 'Deck phải có ít nhất 1 card' })
-  @ArrayMaxSize(30, { message: 'Deck không được quá 30 card' })
+  @ArrayMaxSize(40, { message: 'Deck không được quá 40 thẻ' })
   @IsString({ each: true })
   cardIds: string[];
 }
