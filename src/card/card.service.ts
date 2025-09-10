@@ -52,6 +52,13 @@ export class CardService {
         updateQuery.rarity = 'common';
       }
 
+      // Normalize energy: ensure exists and >= 1
+      if (typeof (card as any).energy === 'undefined') {
+        updateQuery.energy = 1;
+      } else if (typeof (card as any).energy === 'number' && (card as any).energy < 1) {
+        updateQuery.energy = 1;
+      }
+
       if (typeof (card as any).power !== 'undefined') {
         unsetQuery.power = '';
       }

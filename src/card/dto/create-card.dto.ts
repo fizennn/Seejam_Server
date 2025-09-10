@@ -53,6 +53,11 @@ export class CreateCardDto {
   @IsEnum(CardTypeEnum)
   type: CardTypeEnum;
 
+  @ApiProperty({ example: 1, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  energy: number;
+
   @ApiProperty({ type: CardEffectDto })
   @IsObject()
   @ValidateNested()

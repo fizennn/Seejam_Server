@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { CardModule } from './card/card.module';
+import { NpcModule } from './npc/npc.module';
+import { DuelModule } from './duel/duel.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { CardModule } from './card/card.module';
     UsersModule,
     EquipmentModule,
     CardModule,
+    NpcModule,
+    DuelModule,
   ],
   controllers: [AppController],
   providers: [],

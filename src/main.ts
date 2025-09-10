@@ -32,6 +32,7 @@ async function bootstrap() {
     .addTag('users', 'Quản lý người dùng - Các chức năng của người dùng')
     .addTag('equipment', 'Quản lý trang bị - CRUD trang bị vũ khí, giáp, phụ kiện')
     .addTag('cards', 'Quản lý card - CRUD thẻ kỹ năng/buff')
+    .addTag('npc', 'Quản lý NPC - CRUD nhân vật máy')
     .addBearerAuth(
       {
         type: 'http',

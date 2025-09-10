@@ -35,6 +35,9 @@ export class Card {
   @Prop({ required: true, enum: ['skill', 'buff'] })
   type: CardType;
 
+  @Prop({ type: Number, required: true, min: 1 })
+  energy: number;
+
   @Prop({ type: CardEffectSchema, required: true })
   effect: CardEffect;
 }
