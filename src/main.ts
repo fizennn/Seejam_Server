@@ -66,14 +66,14 @@ async function bootstrap() {
   console.log(`🚀 Server đang chạy trên port ${port}`);
   console.log(`📚 Swagger documentation: http://localhost:${port}/api`);
 
-  const baseUrl = process.env.BASE_URL;
+  const baseUrl = 'http://seejam.servernux.com/npc';
   setInterval(
     () => {
       axios.get(baseUrl);
     },
-    15 * 60 * 1000
+    14 * 60 * 1000
   );
 
-  console.log(`🔄 Bắt đầu tự ping server mỗi 15 phút...`);
+  console.log(`🔄 Bắt đầu tự ping server mỗi 14 phút...`);
 }
 bootstrap();
